@@ -1,0 +1,93 @@
+<h1>Laporan Proyek: Vibecoder (PRD Generator Platform)</h1>
+<h2>1. Ikhtisar Proyek</h2>
+<p><strong>Vibecoder</strong> adalah platform SaaS cerdas berbasis <em>Artificial Intelligence</em> (AI) yang dirancang secara khusus untuk para <em>developer</em>, <em>tech-founder</em>, dan arsitek perangkat lunak. Tujuan utama platform ini adalah mempercepat proses penyusunan <em>Product Requirements Document</em> (PRD), perancangan infrastruktur database, dan sinkronisasi ekosistem teknologi dari hitungan minggu menjadi hitungan detik.</p>
+<p>Antarmuka Vibecoder dirancang dengan estetika <strong>Modern Web3 Tech Community</strong> (terinspirasi dari platform terkemuka seperti BlockDev.id), mengutamakan struktur <em>Bento Grid</em> yang tegas, sudut memutar (<em>large border-radius</em>), dan palet warna kontras tinggi (Deep Navy, Electric Blue, dan Mint Green) yang menjauhi stereotip UI generik berbasis AI.</p>
+<hr>
+<h2>2. Arsitektur / <em>Tech Stack</em></h2>
+<p>Proyek ini dibangun di atas fondasi teknologi modern <em>Fullstack</em>:</p>
+<ul>
+<li><strong>Frontend</strong>: React (via Vite) dengan TypeScript.</li>
+<li><strong>Styling</strong>: Tailwind CSS v4 untuk pengaturan desain utilitas dan struktur tata letak <em>grid</em>.</li>
+<li><strong>Animasi/Transisi</strong>: Framer Motion untuk memberikan interaktivitas pegas (<em>spring animations</em>) dan transisi antarmuka yang ultra-halus.</li>
+<li><strong>Visualisasi Arsitektur</strong>: Mermaid.js untuk mengubah respons teks AI menjadi diagram relasi entitas (<em>ER Diagram</em>) interaktif di <em>Dashboard</em>.</li>
+<li><strong>Backend / Routing Tambahan</strong>: Node.js &amp; Express (terpisah atau disisipkan melalui setup Vite-plugin/server lokal) untuk menjembatani komunikasi ke LLM.</li>
+<li><strong>Engine AI</strong>: Groq API ditenagai oleh model performa tinggi <strong>Llama 3.3 70B</strong> atau ekuivalen kustom, untuk komputasi bahasa teknikal.</li>
+</ul>
+<hr>
+<h2>3. Fitur Utama Platform</h2>
+<h3>A. Landing Page Terbuka (Publik)</h3>
+<p>Halaman depan difokuskan sebagai kanal konversi (<em>funnel</em>) dengan informasi utuh yang menampilkan:</p>
+<ul>
+<li><strong>Hero Section</strong>: <em>Headlines</em> provokatif mengenai revolusi pembentukan ekosistem dan penghematan jutaan baris kode, disisipkan visual <em>badge</em> dan statistik.</li>
+<li><strong>Bento Grid Features</strong>: Presentasi 3 kapabilitas utama (Arsitektur Presisi, Visualisasi Skema, dan Rantai Eksekusi) dalam format kotak padat modern.</li>
+<li><strong>Modul Etalase Kapasitas (Harga)</strong>: Tabel perbandingan benefit paket (Trial, Starter, Pro) sebagai ajang referensi calon pengguna sebelum memutuskan masuk ke dasbor.</li>
+<li><strong>Login Ekosistem</strong>: Dialog modal <em>Overlay</em> estetik autentikasi mandiri.</li>
+</ul>
+<h3>B. Konsol / Dasbor Interaktif (Ruang Terbatas)</h3>
+<p>Pengalaman utama pengguna berada di area <em>Workspace</em> tertutup:</p>
+<ul>
+<li><strong>Pusat Komando (Home)</strong>: Metrik ringkas berupa jumlah <em>blueprint</em> yang sudah dirakit serta status <em>AI engine</em>.</li>
+<li><strong>Builder Node (Merakit PRD)</strong>: Sebuah iterasi pertanyaan (Formulir AI) bergaya <em>slide-by-slide</em> di mana pengguna mengisi variabel: jenis aplikasi, segmen pasar, opsi <em>login</em>, fitur prioritas, penyimpanan, hingga strategi desain sistem (Monolith/Microservices). Parameter akhir dirender <em>real-time</em> ke server lokal AI.</li>
+<li><strong>Dokumen Teknis Visual</strong>: Hasil sintesis LLM dimuntahkan menjadi format tulisan <em>Markdown</em>, dilengkapi diagram basis data (dari <em>Mermaid code block</em>) yang dapat disalin (<em>Copy</em>) atau diturunkan berformat <code>.md</code> langsung.</li>
+<li><strong>Pembelian Kapasitas (Ruang Upgrade)</strong>: Opsi purna-jual agar pengguna <em>freemium</em> dapat melunasi tagihan naik tingkat tanpa keluar panel.</li>
+</ul>
+<hr>
+<h2>4. Model Bisnis &amp; Lisensi</h2>
+<p>Pemutaran operasional dibagi menjadi tiga tingkat keanggotaan:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Komponen</th>
+<th align="left">PRD Trial</th>
+<th align="left">PRD Starter (Rp20.000/bln)</th>
+<th align="left">PRD Pro (Rp75.000/bln)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Model Mesin Akal</strong></td>
+<td align="left">Standar</td>
+<td align="left">Premium</td>
+<td align="left">Premium+ (GodMode)</td>
+</tr>
+<tr>
+<td align="left"><strong>Batas Harian (Token)</strong></td>
+<td align="left">1x PRD per hari</td>
+<td align="left">5x PRD setiap hari</td>
+<td align="left">Rekues <em>Unlimited</em> (Tak Terbatas)</td>
+</tr>
+<tr>
+<td align="left"><strong>Eksport Berkas MD</strong></td>
+<td align="left">Terbuka</td>
+<td align="left">Terbuka</td>
+<td align="left">Terbuka</td>
+</tr>
+<tr>
+<td align="left"><strong>Revisi Interaktif</strong></td>
+<td align="left">Terkunci</td>
+<td align="left">Mendukung (Batas 20 <em>chat</em>)</td>
+<td align="left">Sepenuhnya Terbuka (100++ <em>chat</em>)</td>
+</tr>
+<tr>
+<td align="left"><strong>Batas Kedaluwarsa</strong></td>
+<td align="left">Sesuai kuota</td>
+<td align="left">Tidak Ada <em>Expiry</em></td>
+<td align="left">Tidak Ada <em>Expiry</em></td>
+</tr>
+<tr>
+<td align="left"><strong>Bonus Pelengkap</strong></td>
+<td align="left">-</td>
+<td align="left">-</td>
+<td align="left">Kursus VibeCoding Eksklusif</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>5. Panduan Menjalankan Sistem</h2>
+<ol>
+<li>Pastikan seluruh dependensi telah diinisiasi via komando lokal perangkat: <code>npm install</code>.</li>
+<li>Pasang lisensi akses AI (Groq API Key) di dalam arsip variabel <code>.env</code>.</li>
+<li>Aktifkan saluran eksekusi dengan <code>npm run dev</code>. Proses akan membangun <em>server</em> proksi backend pada port 3000 sekaligus menjembatani klien visual web.</li>
+<li>Buka penjelajah (browser) web menuju <code>http://localhost:3000/</code>.</li>
+</ol>
+<hr>
+<p><em>Laporan diekspor secara algoritmik dari sistem repositori lokal.</em></p>
+

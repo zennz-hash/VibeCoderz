@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SQLITE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  picture       String?
+  googleId      String?   @unique
+  role          String    @default("USER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  blueprints    Blueprint[]
+  subscriptions PlanSubscription[]
+  telegramConfig TelegramConfig?
+}
+
+model PlanSubscription {
+  id          String   @id @default(uuid())
+  userId      String
+  planType    String   @default("STARTER") // e.g. STARTER, PRO, ENTERPRISE
+  status      String   @default("ACTIVE")  // ACTIVE, EXPIRED, CANCELLED
+  prdQuota    Int      @default(3)
+  activeUntil DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Blueprint {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  type        String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TelegramConfig {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  botToken    String   // This will be encrypted manually via Crypto utility
+  status      String   @default("STOPPED") // RUNNING, STOPPED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targets     TelegramTarget[]
+}
+
+model TelegramTarget {
+  id          String   @id @default(uuid())
+  configId    String
+  chatId      String
+  targetName  String?
+  createdAt   DateTime @default(now())
+
+  config      TelegramConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  logs        TelegramTargetLog[]
+}
+
+model TelegramTargetLog {
+  id          String   @id @default(uuid())
+  targetId    String
+  status      String   // SUCCESS, FAILED, RATE_LIMIT
+  message     String?
+  createdAt   DateTime @default(now())
+
+  target      TelegramTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+}
