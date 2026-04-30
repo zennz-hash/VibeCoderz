@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Bot, Plus, Trash2, Power, PowerOff, Clock, Send as SendIcon,
   CheckCircle2, XCircle, AlertTriangle, Shield, Users, Megaphone,
-  RefreshCw, Eye, EyeOff, Calendar, Zap, Globe, BarChart3
+  RefreshCw, Eye, EyeOff, Calendar, Zap, Globe, BarChart3,
+  ChevronDown, Search
 } from 'lucide-react';
 
 /* ================================================================

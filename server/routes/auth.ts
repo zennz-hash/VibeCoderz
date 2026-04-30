@@ -5,7 +5,12 @@ import jwt from 'jsonwebtoken';
 
 const router = Router();
 const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.warn('⚠️  WARNING: JWT_SECRET is not set in environment! Authentication tokens are insecure. Set JWT_SECRET in .env for production.');
+}
+const jwtSecret = JWT_SECRET || 'dev-only-insecure-secret-' + Date.now();
 
 router.post('/google', async (req, res) => {
   try {
@@ -61,7 +66,7 @@ router.post('/google', async (req, res) => {
 
     const authToken = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
+      jwtSecret,
       { expiresIn: '7d' }
     );
 
@@ -89,7 +94,7 @@ export const requireAuth = (req: any, res: any, next: any) => {
   if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
   const token = authHeader.split(' ')[1];
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  jwt.verify(token, jwtSecret, (err: any, user: any) => {
     if (err) return res.status(403).json({ error: 'Forbidden' });
     req.user = user;
     next();

@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 
 const algorithm = 'aes-256-cbc';
+
+if (!process.env.ENCRYPTION_KEY) {
+  console.warn('⚠️  WARNING: ENCRYPTION_KEY is not set in .env! A random key will be generated. Encrypted data will be LOST on server restart. Set a persistent 64-character hex string as ENCRYPTION_KEY in .env.');
+}
+
 const secretKey = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
 
 export const BotCrypto = {

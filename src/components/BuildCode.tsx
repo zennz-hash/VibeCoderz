@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Paperclip, Send, Image as ImageIcon, FileText, File, Sparkles, Loader2, Download, Terminal, ChevronRight, Code2, MonitorPlay, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   SandpackProvider,
   SandpackLayout,
@@ -238,12 +238,6 @@ export default function BuildCode() {
   // CORE: fetchFromGroq - AI Code Generation Engine
   // ============================================================
   const fetchFromGroq = async (prompt: string, fileData: {name: string, content: string}[] = []) => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!apiKey) {
-       addLog("[ERROR] API Key Groq gagal dimuat dari berkas .env. Pastikan atribut 'VITE_GROQ_API_KEY' tersedia.");
-       setGenStatus('done');
-       return;
-    }
 
     addLog("Membangun sambungan HTTPS langsung ke api.groq.com...");
     addLog("Mempersiapkan Payload arsitektur JSON-Mode...");
@@ -319,22 +313,17 @@ Susun kode React LENGKAP berdasarkan permintaan user. Kembalikan HANYA objek JSO
     try {
        addLog("Menunggu kalkulasi jaringan (Model Llama-3.3-70B via Groq)...");
        
-       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-         method: "POST",
-         headers: {
-           "Authorization": `Bearer ${apiKey}`,
-           "Content-Type": "application/json"
-         },
-         body: JSON.stringify({
-           model: "llama-3.3-70b-versatile",
-           messages: [
-             { role: "system", content: systemInstruction },
-             ...allMsgs
-           ],
-           response_format: { type: "json_object" },
-           temperature: 0.2
-         })
-       });
+       const res = await fetch("/api/generate-code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem('auth_token') || ''}`
+          },
+          body: JSON.stringify({
+            systemInstruction,
+            messages: allMsgs
+          })
+        });
 
        if (!res.ok) {
           const errBody = await res.text();
@@ -413,6 +402,7 @@ Susun kode React LENGKAP berdasarkan permintaan user. Kembalikan HANYA objek JSO
 
     setMessages(prev => [...prev, userMessage]);
     const currentPrompt = inputValue;
+    const capturedFileData = [...attachedFilesData];
     
     setInputValue('');
     setAttachedFiles([]);
@@ -420,8 +410,8 @@ Susun kode React LENGKAP berdasarkan permintaan user. Kembalikan HANYA objek JSO
     setGenStatus('building');
     setLogs([]);
 
-    // Call the heavy lifter
-    fetchFromGroq(currentPrompt, attachedFilesData);
+    // Call the heavy lifter with captured data to avoid race condition
+    fetchFromGroq(currentPrompt, capturedFileData);
   };
 
   const handleAutoFix = (errorMsg: string) => {

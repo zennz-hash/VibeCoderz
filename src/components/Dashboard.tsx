@@ -23,10 +23,22 @@ mermaid.initialize({
   securityLevel: 'loose',
 });
 
+/* Sanitize SVG to prevent XSS from AI-generated content */
+const sanitizeSvg = (svgString: string): string => {
+  /* Remove script tags */
+  let safe = svgString.replace(/<script[\s\S]*?<\/script>/gi, '');
+  /* Remove event handlers */
+  safe = safe.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+  /* Remove javascript: URIs */
+  safe = safe.replace(/javascript\s*:/gi, 'blocked:');
+  return safe;
+};
+
 const MermaidDiagram = ({ chart }: { chart: string }) => {
   const [svg, setSvg] = useState('');
   const [hasError, setHasError] = useState(false);
-  const id = `mermaid-${useId().replace(/:/g, '')}`;
+  const baseId = useId().replace(/:/g, '');
+  const id = `mermaid-${baseId}-${Math.random().toString(36).slice(2, 8)}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -35,9 +47,12 @@ const MermaidDiagram = ({ chart }: { chart: string }) => {
     const renderChart = async () => {
       try {
         const { svg } = await mermaid.render(id, chart);
-        if (isMounted) setSvg(svg);
+        if (isMounted) setSvg(sanitizeSvg(svg));
       } catch (error) {
         if (isMounted) setHasError(true);
+        /* Cleanup phantom mermaid container that leaks on error */
+        const phantom = document.getElementById('d' + id);
+        if (phantom) phantom.remove();
       }
     };
     
@@ -82,6 +97,14 @@ const QUIZ_QUESTIONS: QuizQuestion[] = [
   { id: 7, title: "Mekanisme utama aliran pendapatan (Monetisasi)?", type: 'input' }
 ];
 
+const LOADING_SEQUENCE = [
+  "Menyinkronkan Parameter Infrastruktur...",
+  "Merakit Matriks Relasional Database...",
+  "Memetakan Aliran Data Pengguna...",
+  "Mengekstrak Dokumen Teknis...",
+  "Finalisasi Blueprints..."
+];
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<'dashboard' | 'builder' | 'history' | 'upgrade' | 'build_code' | 'auto_promo'>('dashboard');
@@ -100,19 +123,12 @@ export default function Dashboard() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [prdResult, setPrdResult] = useState('');
   const [isCopied, setIsCopied] = useState(false);
-
-  const loadingSequence = [
-    "Menyinkronkan Parameter Infrastruktur...",
-    "Merakit Matriks Relasional Database...",
-    "Memetakan Aliran Data Pengguna...",
-    "Mengekstrak Dokumen Teknis...",
-    "Finalisasi Blueprints..."
-  ];
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (builderStep === 'generating') {
-      interval = setInterval(() => setLoadingStep((prev) => (prev + 1) % loadingSequence.length), 2000);
+      interval = setInterval(() => setLoadingStep((prev) => (prev + 1) % LOADING_SEQUENCE.length), 2000);
     }
     return () => clearInterval(interval);
   }, [builderStep]);
@@ -156,16 +172,32 @@ export default function Dashboard() {
     });
 
     try {
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/generate-prd', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`
+        },
         body: JSON.stringify({ projectType, projectName, projectDescription: compiledDescription, isAiChoice, techStack }),
       });
 
-      if (!response.ok) throw new Error('Mesin Gagal Menyinkronkan Data.');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: 'Mesin Gagal Menyinkronkan Data.' }));
+        throw new Error(errData.error || `HTTP ${response.status}`);
+      }
       const data = await response.json();
       setPrdResult(data.markdown);
       setBuilderStep('result');
+
+      // Update quota info from server response
+      if (data.quota) {
+        setUserProfile((prev: any) => prev ? { ...prev, quota: data.quota } : prev);
+      }
+
+      // Refresh blueprints list (PRD was auto-saved server-side)
+      fetchBlueprints();
+
     } catch (error: any) {
       setPrdResult(`### ERROR SYSTEM KONEKSI\n\n${error.message}`);
       setBuilderStep('result');
@@ -195,28 +227,49 @@ export default function Dashboard() {
   const [blueprints, setBlueprints] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  useEffect(() => {
+  // Fetch fresh user profile from server (not stale localStorage)
+  const fetchUserProfile = async () => {
     try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) setUserProfile(JSON.parse(storedUser));
-    } catch(e) {}
-    
-    // Fetch blueprints from API safely
-    const fetchBlueprints = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
-        const res = await fetch('/api/blueprints', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      const res = await fetch('/api/user/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setBlueprints(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch real blueprints', error);
+        setUserProfile(data);
+        // Also update localStorage for components that still read from it
+        localStorage.setItem('user', JSON.stringify(data));
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      // Fallback to localStorage if server unreachable
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) setUserProfile(JSON.parse(storedUser));
+      } catch(e) {}
+    }
+  };
+
+  // Fetch blueprints from API
+  const fetchBlueprints = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      const res = await fetch('/api/blueprints', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setBlueprints(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch blueprints', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
     fetchBlueprints();
   }, []);
 
@@ -226,18 +279,31 @@ export default function Dashboard() {
      { id: 3, name: "API Node Runner", type: "API Service", time: "3 hari lalu" },
   ];
 
-  const displayBlueprints = blueprints.length > 0 ? blueprints.map(b => ({
+  const allBlueprints = blueprints.length > 0 ? blueprints.map(b => ({
      id: b.id, name: b.name, type: b.type, time: new Date(b.createdAt).toLocaleDateString()
   })) : dummyBlueprints;
 
+  const displayBlueprints = searchQuery.trim()
+    ? allBlueprints.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : allBlueprints;
+
   const getPlanInfo = () => {
-     if (userProfile?.plan) return userProfile.plan === 'STARTER' ? 'PRD Starter' : userProfile.plan;
-     return 'PRD Starter';
+     const plan = userProfile?.plan;
+     if (!plan) return 'PRD Starter';
+     if (plan === 'STARTER') return 'PRD Starter';
+     if (plan === 'PRO') return 'PRD Pro';
+     if (plan === 'FREE') return 'PRD Free';
+     return plan;
   };
 
   const getQuotaInfo = () => {
-     if (userProfile && typeof userProfile.quota !== 'undefined') return `(Sisa ${userProfile.quota} PRD hari ini)`;
-     return '(Sisa 3 PRD hari ini)';
+     if (userProfile?.quota && typeof userProfile.quota === 'object') {
+       return `(Sisa ${userProfile.quota.remaining}/${userProfile.quota.limit} PRD hari ini)`;
+     }
+     if (typeof userProfile?.quota === 'number') {
+       return `(Sisa ${userProfile.quota} PRD hari ini)`;
+     }
+     return '(Memuat kuota...)';
   };
 
   const renderDashboardHome = () => (
@@ -249,7 +315,7 @@ export default function Dashboard() {
           </div>
           <div className="relative">
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Temukan nama proyek..." className="bg-[#111111] border border-white/5 rounded-full pl-12 pr-6 py-4 text-sm font-medium w-72 focus:outline-none focus:border-white/20 transition-colors text-white" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Temukan nama proyek..." className="bg-[#111111] border border-white/5 rounded-full pl-12 pr-6 py-4 text-sm font-medium w-72 focus:outline-none focus:border-white/20 transition-colors text-white" />
           </div>
        </div>
 
@@ -559,7 +625,7 @@ export default function Dashboard() {
                   <motion.div className="absolute top-0 bottom-0 left-0 bg-white text-black" initial={{width: "0%"}} animate={{width: "100%"}} transition={{duration: 10, ease: "linear"}} />
                 </div>
                 <div className="inline-flex px-6 py-2 rounded-full bg-white/5 border border-white/5 text-gray-400 text-sm font-bold">
-                  {loadingSequence[loadingStep]}
+                  {LOADING_SEQUENCE[loadingStep]}
                 </div>
              </motion.div>
            )}
@@ -629,7 +695,7 @@ export default function Dashboard() {
         </div>
 
         <div className="p-4 border-t border-white/5 mt-auto">
-          <button onClick={() => { localStorage.removeItem('isLoggedIn'); navigate('/'); }} className="w-full flex items-center justify-center lg:justify-start gap-4 px-4 py-3.5 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 transition-all font-bold text-[15px]">
+          <button onClick={() => { localStorage.removeItem('isLoggedIn'); localStorage.removeItem('auth_token'); localStorage.removeItem('user'); navigate('/'); }} className="w-full flex items-center justify-center lg:justify-start gap-4 px-4 py-3.5 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 transition-all font-bold text-[15px]">
             <LogOut className="w-5 h-5" /> <span className="hidden lg:block">Keluar Sesi</span>
           </button>
         </div>

@@ -45,12 +45,15 @@ const dict = {
   }
 };
 
+
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const [lang, setLang] = useState<Lang>('id');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeNav, setActiveNav] = useState('Home');
+  const [showIntro, setShowIntro] = useState(true);
 
   const text = dict[lang];
 
@@ -83,7 +86,35 @@ export default function LandingPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#000000] text-white font-sans selection:bg-white selection:text-black relative overflow-x-hidden">
+    <>
+      <AnimatePresence>
+        {showIntro && (
+          <motion.div 
+            key="intro-video"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden"
+          >
+            <video
+              src="/intro.mp4"
+              autoPlay
+              muted
+              playsInline
+              onEnded={() => setShowIntro(false)}
+              className="w-full h-full object-cover"
+            />
+            <button 
+              onClick={() => setShowIntro(false)}
+              className="absolute bottom-8 right-8 md:bottom-10 md:right-10 px-6 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all font-medium z-10"
+            >
+              Skip Intro
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    <div className={`min-h-screen bg-[#000000] text-white font-sans selection:bg-white selection:text-black relative overflow-x-hidden ${showIntro ? 'h-screen overflow-hidden' : ''}`}>
       
       {/* BACKGROUND EFFECTS */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen">
@@ -99,7 +130,7 @@ export default function LandingPage() {
       <div className="absolute top-[10%] right-[-10%] w-[50%] h-[50%] bg-white/10 blur-[150px] rounded-full pointer-events-none mix-blend-screen" />
 
       {/* HEADER NAVBAR (Light overlapping Dark) */}
-      <div className="relative z-50">
+      <div className="fixed top-0 w-full z-50 transition-all duration-300">
         <nav className="w-full bg-[#f8f9fa] pt-4 pb-8 rounded-b-[40px] md:rounded-b-[80px] shadow-2xl relative z-10 text-black">
           <div className="max-w-7xl mx-auto px-6 lg:px-10 flex justify-between items-center h-14">
             <div className="flex items-center gap-2">
@@ -141,7 +172,7 @@ export default function LandingPage() {
       </div>
 
       {/* HERO BANNER SECTION */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 pt-20 pb-32 flex flex-col items-center">
+      <main className="relative z-10 max-w-6xl mx-auto px-6 pt-40 pb-32 flex flex-col items-center">
          
          <motion.div 
            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
@@ -149,11 +180,23 @@ export default function LandingPage() {
          >
            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none"></div>
            
-           <h1 className="text-5xl md:text-[70px] font-extrabold tracking-tight leading-[1.1] mb-6 relative z-10">
-              {text.hero_title_1} <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-400 via-white to-gray-400">
+           <h1 className="text-5xl md:text-[70px] font-extrabold tracking-tight leading-[1.1] mb-6 relative z-10 flex flex-col items-center gap-3">
+              <motion.span 
+                initial={{ opacity: 0, x: -100, filter: "blur(10px)" }}
+                animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.8, delay: 0.2, type: "spring", damping: 15 }}
+                className="inline-block"
+              >
+                {text.hero_title_1}
+              </motion.span>
+              <motion.span 
+                initial={{ opacity: 0, x: 100, filter: "blur(10px)" }}
+                animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.8, delay: 0.4, type: "spring", damping: 15 }}
+                className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-gray-400 via-white to-gray-400 pb-2" 
+              >
                 {text.hero_title_2}
-              </span>
+              </motion.span>
            </h1>
            
            <div className="flex flex-col md:flex-row justify-center items-center gap-12 mt-16 border-t border-white/10 pt-12 relative z-10">
@@ -377,5 +420,6 @@ export default function LandingPage() {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }
