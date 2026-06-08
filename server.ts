@@ -67,22 +67,8 @@ async function enforceLogRetention() {
   }
 }
 
-async function startServer() {
-  assertValidEnvironment();
-
-  const backfilledVersions = await backfillMissingBlueprintVersions().catch((error) => {
-    console.error('⚠️ Failed to backfill blueprint versions:', error?.message || error);
-    return 0;
-  });
-  if (backfilledVersions > 0) {
-    console.log(`🧾 Backfilled ${backfilledVersions} blueprint version record(s).`);
-  }
-  await enforceLogRetention().catch((error) => {
-    console.error('⚠️ Failed to enforce log retention:', error?.message || error);
-  });
-
+export async function createApp() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
   const isProduction = process.env.NODE_ENV === 'production';
   const trustProxyEnv = (process.env.TRUST_PROXY || '').trim();
   if (trustProxyEnv) {
@@ -1008,6 +994,33 @@ Output HANYA Markdown murni (tanpa \`\`\`markdown wrapper). Pertahankan struktur
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
 
+  // Global error handler (last middleware)
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    console.error('💥 Unhandled error:', err?.message || err);
+    if (res.headersSent) return;
+    res.status(err?.status || 500).json({ error: err?.message || 'Internal server error' });
+  });
+
+  return app;
+}
+
+async function startServer() {
+  assertValidEnvironment();
+
+  const backfilledVersions = await backfillMissingBlueprintVersions().catch((error) => {
+    console.error('⚠️ Failed to backfill blueprint versions:', error?.message || error);
+    return 0;
+  });
+  if (backfilledVersions > 0) {
+    console.log(`🧾 Backfilled ${backfilledVersions} blueprint version record(s).`);
+  }
+  await enforceLogRetention().catch((error) => {
+    console.error('⚠️ Failed to enforce log retention:', error?.message || error);
+  });
+
+  const app = await createApp();
+  const PORT = Number(process.env.PORT) || 3000;
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1022,13 +1035,6 @@ Output HANYA Markdown murni (tanpa \`\`\`markdown wrapper). Pertahankan struktur
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
-  // Global error handler (last middleware)
-  app.use((err: any, _req: any, res: any, _next: any) => {
-    console.error('💥 Unhandled error:', err?.message || err);
-    if (res.headersSent) return;
-    res.status(err?.status || 500).json({ error: err?.message || 'Internal server error' });
-  });
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);

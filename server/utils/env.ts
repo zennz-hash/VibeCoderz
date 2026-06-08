@@ -18,6 +18,8 @@ export function validateEnvironment(env = process.env): string[] {
 
   for (const check of ENV_CHECKS) {
     if (check.productionOnly && !isProduction) continue;
+    // SQLITE_URL is optional when Turso is configured
+    if (check.name === 'SQLITE_URL' && env.TURSO_DATABASE_URL && env.TURSO_AUTH_TOKEN) continue;
     const value = env[check.name];
     if (check.required && !value) {
       errors.push(`${check.name} wajib diisi.`);
@@ -28,8 +30,9 @@ export function validateEnvironment(env = process.env): string[] {
     }
   }
 
+  // ROUTER9 bukan hard requirement — fitur AI tidak berfungsi tanpa ini, tapi app tetap bisa start
   if (!env.ROUTER9_API_KEY) {
-    errors.push('ROUTER9_API_KEY wajib diisi (semua AI request via 9router).');
+    console.warn('⚠️  WARNING: ROUTER9_API_KEY tidak diset. Fitur generate AI akan gagal.');
   }
 
   if (env.ROUTER9_API_KEY && !env.ROUTER9_BASE_URL) {
