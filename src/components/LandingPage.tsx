@@ -1,30 +1,31 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, Box, Target, Layers, Play, Check, ShieldCheck } from 'lucide-react';
+import { Box, Target, Layers, Play, Check, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { useState, useEffect } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 import PillNav from './PillNav';
 import Silk from './Silk';
+import { apiFetch, readApiError, userFacingError } from '../utils/api';
 
 type Lang = 'id' | 'en';
 
 const dict = {
   id: {
-    nav_index: 'Fitur Sistem',
-    nav_pricing: 'Kapasitas',
-    build_btn: 'Build',
-    hero_badge: 'APA YANG KITA BANGUN',
-    hero_title_1: 'Merakit Ekosistem',
-    hero_title_2: 'Arsitektur Aplikasi',
-    hero_desc: 'Mengurangi waktu perencanaan infrastruktur dari berminggu-minggu menjadi hitungan detik dengan AI yang dirancang untuk developer dan tech-founder sejati.',
-    hero_cta: 'Cobain VibeCoderz →',
-    feat1_title: 'Arsitektur Presisi',
-    feat1_desc: 'Pilihan stack teknologi yang efisien dan kokoh tanpa tebakan acak.',
-    feat2_title: 'Visualisasi Skema',
-    feat2_desc: 'Diagram ER dan alur data langsung jadi dalam format gambar.',
-    feat3_title: 'Siap Deploy',
-    feat3_desc: 'Instruksi bertahap yang paling mengerti instrumen kopilot Anda.',
-    footer: 'Copyright © 2026 VibeCoderz Labs All trademarks belong to their respective owners.',
+    nav_index: 'Fitur Aplikasi',
+    nav_pricing: 'Pilihan Paket',
+    build_btn: 'Mulai Buat',
+    hero_badge: 'BISA BANTU APA?',
+    hero_title_1: 'Bikin Rencana Aplikasi',
+    hero_title_2: 'Jadi Instan Pakai AI',
+    hero_desc: 'Nggak perlu pusing mikirin cara bikin website atau sistem database. Cukup tulis ide aplikasi yang kamu inginkan, dan AI kami akan membuatkan rencana desain, gambar alur data, hingga kode pemrogramannya dalam hitungan detik!',
+    hero_cta: 'Mulai Buat Sekarang (Gratis) →',
+    feat1_title: 'Rekomendasi Sistem Terbaik',
+    feat1_desc: 'Dapatkan daftar alat dan bahasa pemrograman terbaik yang paling cocok untuk mewujudkan ide aplikasimu secara otomatis.',
+    feat2_title: 'Gambar Diagram Alur',
+    feat2_desc: 'Lihat bagaimana data di aplikasimu saling terhubung lewat gambar diagram yang simpel dan mudah dipahami.',
+    feat3_title: 'Panduan & Kode Siap Pakai',
+    feat3_desc: 'Dapatkan petunjuk langkah demi langkah beserta kode pemrograman yang sudah siap dijalankan untuk aplikasi kamu.',
+    footer: 'Copyright © 2026 VibeCoderz Labs. Hak cipta dilindungi undang-undang.',
   },
   en: {
     nav_index: 'System Features',
@@ -52,69 +53,70 @@ export default function LandingPage() {
   const [lang, setLang] = useState<Lang>('id');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('Home');
-  const [showIntro, setShowIntro] = useState(true);
 
   const text = dict[lang];
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '');
+  const isGoogleConfigured = Boolean(googleClientId && googleClientId !== 'dummy_client_id');
 
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setIsLoggingIn(true);
-      try {
-        const res = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: tokenResponse.access_token })
-        });
-        
-        if (!res.ok) throw new Error('Login failed');
-        
-        const data = await res.json();
-        
-        // Save auth data
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('isLoggedIn', 'true');
-        
-        navigate('/dashboard');
-      } catch (err) {
-        console.error('Login Error:', err);
-        setIsLoggingIn(false);
+  const handleGoogleCredential = async (credential?: string) => {
+    if (!isGoogleConfigured) {
+      setLoginError('Login Google belum dikonfigurasi. Set VITE_GOOGLE_CLIENT_ID di environment.');
+      return;
+    }
+    if (!credential) {
+      setLoginError('Autentikasi Google tidak mengirim credential.');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      const res = await apiFetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          credential,
+          id_token: credential,
+          idToken: credential,
+          token: credential,
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Login failed'));
       }
-    },
-    onError: () => setIsLoggingIn(false)
-  });
+
+      const data = await res.json();
+      localStorage.setItem('user', JSON.stringify(data.user));
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('Login Error:', err);
+      setLoginError(`Login gagal: ${userFacingError(err, 'Login gagal.')}`);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const openLoginModal = () => {
+    setLoginError(null);
+    setShowLoginModal(true);
+  };
+
+  // Lock body scroll when login modal is open
+  useEffect(() => {
+    if (showLoginModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showLoginModal]);
 
   return (
     <>
-      <AnimatePresence>
-        {showIntro && (
-          <motion.div 
-            key="intro-video"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-            className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden"
-          >
-            <video
-              src="/intro.mp4"
-              autoPlay
-              muted
-              playsInline
-              onEnded={() => setShowIntro(false)}
-              className="w-full h-full object-cover"
-            />
-            <button 
-              onClick={() => setShowIntro(false)}
-              className="absolute bottom-8 right-8 md:bottom-10 md:right-10 px-6 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all font-medium z-10"
-            >
-              Skip Intro
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-    <div className={`min-h-screen bg-[#000000] text-white font-sans selection:bg-white selection:text-black relative overflow-x-hidden ${showIntro ? 'h-screen overflow-hidden' : ''}`}>
+    <div className="min-h-screen bg-[#000000] text-white font-sans selection:bg-white selection:text-black relative overflow-x-hidden">
       
       {/* BACKGROUND EFFECTS */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen">
@@ -131,9 +133,9 @@ export default function LandingPage() {
 
       {/* HEADER NAVBAR (Light overlapping Dark) */}
       <div className="fixed top-0 w-full z-50 transition-all duration-300">
-        <nav className="w-full bg-[#f8f9fa] pt-4 pb-8 rounded-b-[40px] md:rounded-b-[80px] shadow-2xl relative z-10 text-black">
+        <nav className="w-full bg-[#f8f9fa]/90 backdrop-blur-md pt-4 pb-4 rounded-b-[20px] md:rounded-b-[40px] shadow-lg relative z-10 text-black border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 lg:px-10 flex justify-between items-center h-14">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
               <img src="/logo.png?v=2" alt="VibeCoderz" className="w-8 h-8 object-contain" />
               <span className="font-extrabold text-[22px] tracking-tight">VibeCoderz</span>
               <div className="w-2 h-2 rounded-full bg-white text-black"></div>
@@ -142,9 +144,9 @@ export default function LandingPage() {
             <div className="hidden md:flex flex-1 justify-center z-[90]">
                <PillNav
                  items={[
-                   { label: 'Home', href: '/' },
-                   { label: 'How to work', href: '#fitur' },
-                   { label: 'Subscribe', href: '#harga' }
+                   { label: 'Beranda', href: '/' },
+                   { label: 'Cara Kerja', href: '#fitur' },
+                   { label: 'Paket Layanan', href: '#harga' }
                  ]}
                  baseColor="#111111"
                  pillColor="#ffffff"
@@ -156,12 +158,12 @@ export default function LandingPage() {
             <div className="flex items-center gap-6">
                <button 
                   onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
-                  className="font-bold text-[14px] hover:text-gray-300 transition-colors uppercase"
+                  className="flex items-center gap-1 font-bold text-[14px] hover:text-gray-500 transition-colors uppercase px-2 py-1 rounded-md hover:bg-gray-200/50"
                >
-                 {lang}
+                 {lang} <span className="text-[10px] opacity-60">▼</span>
                </button>
                <button 
-                 onClick={() => setShowLoginModal(true)}
+                 onClick={openLoginModal}
                  className="hidden md:flex px-6 py-2.5 rounded-full bg-transparent border-2 border-black text-black hover:bg-black hover:text-white font-bold text-[15px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-0.5"
                >
                  {text.build_btn}
@@ -199,20 +201,20 @@ export default function LandingPage() {
               </motion.span>
            </h1>
            
-           <div className="flex flex-col md:flex-row justify-center items-center gap-12 mt-16 border-t border-white/10 pt-12 relative z-10">
+           <div className="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-12 mt-12 border-t border-white/10 pt-8 relative z-10">
               <div className="text-center">
-                 <div className="text-4xl md:text-5xl font-black mb-2">12K+</div>
-                 <div className="text-[15px] text-gray-400 font-medium">Pengguna Aktif</div>
+                 <div className="text-4xl md:text-5xl font-black mb-1">PRD</div>
+                 <div className="text-[14px] text-gray-400 font-medium">Blueprint Teknis</div>
               </div>
-              <div className="hidden md:block w-px h-16 bg-white/10"></div>
+              <div className="hidden md:block w-px h-12 bg-white/10"></div>
               <div className="text-center">
-                 <div className="text-4xl md:text-5xl font-black mb-2">1M+</div>
-                 <div className="text-[15px] text-gray-400 font-medium">Barris Kode Diselamatkan</div>
+                 <div className="text-4xl md:text-5xl font-black mb-1">Code</div>
+                 <div className="text-[14px] text-gray-400 font-medium">Preview Sandpack</div>
               </div>
-              <div className="hidden md:block w-px h-16 bg-white/10"></div>
+              <div className="hidden md:block w-px h-12 bg-white/10"></div>
               <div className="text-center">
-                 <div className="text-4xl md:text-5xl font-black mb-2">Model</div>
-                 <div className="text-[15px] text-gray-400 font-medium">Llama 70B Turbo</div>
+                 <div className="text-4xl md:text-5xl font-black mb-1">Model</div>
+                 <div className="text-[14px] text-gray-400 font-medium">Llama 70B Turbo</div>
               </div>
            </div>
          </motion.div>
@@ -228,7 +230,7 @@ export default function LandingPage() {
               {text.hero_desc}
             </p>
             <button 
-               onClick={() => setShowLoginModal(true)}
+               onClick={openLoginModal}
                className="px-10 py-4 rounded-full bg-white text-black font-bold text-lg hover:shadow-[0_8px_30px_rgba(255,255,255,0.2)] transition-all hover:scale-[1.02]"
             >
               {text.hero_cta}
@@ -237,10 +239,10 @@ export default function LandingPage() {
       </main>
 
       {/* BENTO GRID FEATURES */}
-      <section id="fitur" className="relative z-10 w-full bg-[#f8f9fa] pt-32 pb-40 rounded-t-[40px] md:rounded-t-[80px] text-black">
+      <section id="fitur" className="relative z-10 w-full bg-[#f8f9fa] pt-24 pb-24 rounded-t-[40px] md:rounded-t-[60px] text-black">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="mb-16">
-            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Cara VibeCoderz <br/>Bantu Kamu Berkembang</h2>
+          <div className="mb-12 text-center md:text-left">
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">Cara VibeCoderz <br className="hidden md:block" />Bantu Kamu Berkembang</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -311,55 +313,55 @@ export default function LandingPage() {
       </section>
 
       {/* PRICING PLANS */}
-      <section id="harga" className="relative z-10 w-full bg-[#000000] py-32 rounded-t-[40px] md:rounded-t-[80px] -mt-10">
+      <section id="harga" className="relative z-10 w-full bg-[#000000] py-24 rounded-t-[40px] md:rounded-t-[60px] -mt-10">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="mb-16">
-            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Pilih Paket PRD</h2>
-            <p className="text-xl text-gray-400 font-medium">Skalakan output arsitektur sesuai kebutuhan timmu.</p>
+          <div className="mb-16 text-center">
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Pilih Paket Desain Aplikasi</h2>
+            <p className="text-xl text-gray-400 font-medium">Billing otomatis belum aktif. Admin dapat mengubah plan akun secara manual.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 items-stretch">
             
             {/* PRD TRIAL */}
-            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="p-10 rounded-[40px] bg-[#111111] border border-white/5 hover:border-white/10 transition-colors flex flex-col">
+            <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="p-8 rounded-[32px] bg-[#111111] border border-white/5 hover:border-white/10 transition-colors flex flex-col">
                <div className="inline-flex self-start items-center px-4 py-1.5 rounded-full bg-white/5 text-gray-400 font-bold text-[12px] uppercase tracking-widest mb-6 border border-white/10">Gratis</div>
-               <h3 className="text-2xl font-bold mb-2">PRD Trial</h3>
-               <div className="text-5xl font-black mb-10">Rp 0</div>
-               <div className="space-y-5 mb-12 font-medium text-gray-400 flex-1">
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" /> <span>1x PRD per hari</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" /> <span>AI Model Standar</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" /> <span>Download File .MD</span></div>
-               </div>
-            </motion.div>
-
-            {/* PRD STARTER */}
-            <motion.div animate={{ y: [0, -15, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }} className="p-10 rounded-[40px] bg-gradient-to-b from-white/10 to-[#111111] border border-white/20 relative scale-[1.03] shadow-[0_20px_50px_rgba(255,255,255,0.05)] overflow-hidden flex flex-col">
-               <div className="absolute top-0 right-0 bg-gradient-to-l from-gray-300 to-white text-white text-[12px] font-bold px-5 py-2.5 rounded-bl-3xl rounded-tr-[40px] uppercase tracking-widest">Populer</div>
-               <div className="inline-flex self-start items-center px-4 py-1.5 rounded-full bg-white/10 text-gray-300 font-bold text-[12px] uppercase tracking-widest mb-6 border border-white/20">Rekomendasi</div>
-               <h3 className="text-2xl font-bold mb-2">PRD Starter</h3>
-               <div className="text-5xl font-black mb-1 flex items-end gap-2">Rp20K <span className="text-xl font-bold text-gray-400 pb-1">/bulan</span></div>
-               <div className="space-y-5 mb-12 font-medium mt-10 flex-1">
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>AI Model Premium</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>5x PRD setiap hari</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Revisi PRD</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>20 Request Chat Revisi</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Tidak ada expiry</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Download File .MD</span></div>
+               <h3 className="text-2xl font-bold mb-2">Paket Uji Coba</h3>
+               <div className="text-5xl font-black mb-10 flex items-end gap-2">Rp 0 <span className="text-xl font-bold text-gray-500 pb-1 opacity-0">/bulan</span></div>
+               <div className="space-y-4 mb-8 font-medium text-gray-400 flex-1">
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" /> <span>1x Rencana Aplikasi per hari</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" /> <span>Model AI Standar</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" /> <span>Unduh Dokumen (.MD)</span></div>
                </div>
             </motion.div>
 
             {/* PRD PRO */}
-            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }} className="p-10 rounded-[40px] bg-[#111111] border border-white/5 hover:border-white/20 transition-colors flex flex-col">
+            <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }} className="p-8 rounded-[32px] bg-gradient-to-b from-white/10 to-[#111111] border border-white/20 relative scale-[1.03] shadow-[0_20px_50px_rgba(255,255,255,0.05)] overflow-hidden flex flex-col z-10">
+               <div className="absolute top-4 right-[-30px] bg-white text-black text-[11px] font-bold px-10 py-1.5 rotate-45 uppercase tracking-widest shadow-lg">Populer</div>
+               <div className="inline-flex self-start items-center px-4 py-1.5 rounded-full bg-white/10 text-gray-300 font-bold text-[12px] uppercase tracking-widest mb-6 border border-white/20">Rekomendasi</div>
+               <h3 className="text-2xl font-bold mb-2">Paket Pro</h3>
+               <div className="text-5xl font-black mb-1 flex items-end gap-2">Rp20K <span className="text-xl font-bold text-gray-400 pb-1">/bulan</span></div>
+               <div className="space-y-4 mb-8 font-medium mt-10 flex-1">
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Model AI Premium (Lebih Pintar)</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>5x Rencana Aplikasi setiap hari</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Bisa Revisi Rencana Aplikasi</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>20x Chat Revisi dengan AI</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Akses Selamanya (Tanpa Kedaluwarsa)</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Unduh Dokumen (.MD)</span></div>
+               </div>
+            </motion.div>
+
+            {/* PRD PRO MAX */}
+            <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }} className="p-8 rounded-[32px] bg-[#111111] border border-white/5 hover:border-white/20 transition-colors flex flex-col">
                <div className="inline-flex self-start items-center px-4 py-1.5 rounded-full bg-white/10 text-gray-300 font-bold text-[12px] uppercase tracking-widest mb-6 border border-white/20">Unlimited</div>
-               <h3 className="text-2xl font-bold mb-2">PRD Pro</h3>
+               <h3 className="text-2xl font-bold mb-2">Paket Pro Max</h3>
                <div className="text-5xl font-black mb-1 flex items-end gap-2">Rp75K <span className="text-xl font-bold text-gray-400 pb-1">/bulan</span></div>
-               <div className="space-y-5 mb-12 mt-10 font-medium flex-1">
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>AI Model Premium+</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Unlimited PRD</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Revisi PRD Unlimited</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>100++ Chat Revisi PRD</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Tidak ada expiry</span></div>
-                  <div className="flex items-start gap-4 py-2 border-b border-white/10"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span className="font-bold text-gray-300">Bonus Kursus VibeCoding</span></div>
+               <div className="space-y-4 mb-8 mt-10 font-medium flex-1">
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Model AI Paling Cerdas (God Mode)</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Bikin Rencana Aplikasi Sepuasnya</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Revisi Rencana Sepuasnya</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Ratusan Chat Revisi AI</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span>Akses Selamanya (Tanpa Kedaluwarsa)</span></div>
+                  <div className="flex items-start gap-3 py-2 border-b border-white/5"><Check className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" /> <span className="font-bold text-gray-300">Bonus Kelas Coding Eksklusif</span></div>
                </div>
             </motion.div>
 
@@ -367,11 +369,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="w-full bg-[#000000] p-10 border-t border-white/5 z-10 relative text-gray-400">
-        <div className="max-w-6xl mx-auto flex flex-col justify-center items-center font-bold text-[15px] space-y-2">
-          <div>Sosial Media Developer</div>
-          <div className="text-white text-lg">Ikhwanda Pratama</div>
-          <div className="text-gray-500">Instagram: <a href="https://instagram.com/zennz_466" className="text-white hover:underline">@zennz_466</a></div>
+      <footer className="w-full bg-[#000000] p-12 border-t border-white/10 z-10 relative text-gray-400 mt-12">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center text-[14px]">
+          <div className="flex items-center gap-2 mb-4 md:mb-0">
+             <img src="/logo.png?v=2" alt="VibeCoderz" className="w-6 h-6 object-contain opacity-50 grayscale" />
+             <span className="font-bold tracking-tight text-white/50">VibeCoderz</span>
+          </div>
+          <div className="text-center md:text-left mb-4 md:mb-0 text-white/40">
+            {text.footer}
+          </div>
+          <div className="flex gap-4">
+            <a href="https://instagram.com/zennz_466" target="_blank" rel="noreferrer" className="text-white/40 hover:text-white transition-colors">Instagram</a>
+            <a href="#" className="text-white/40 hover:text-white transition-colors">Twitter</a>
+            <a href="#" className="text-white/40 hover:text-white transition-colors">GitHub</a>
+          </div>
         </div>
       </footer>
 
@@ -391,30 +402,43 @@ export default function LandingPage() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="relative w-full max-w-md bg-white text-black rounded-[40px] p-10 flex flex-col items-center shadow-2xl"
             >
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-white/10 to-white/10 flex items-center justify-center mb-6">
-                <Layers className="w-8 h-8 text-gray-300" />
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-6">
+                <Layers className="w-8 h-8 text-gray-600" />
               </div>
               
-              <h3 className="text-3xl font-extrabold text-black mb-2 tracking-tight text-center">Masuk ke Ruang Builder</h3>
+              <h3 className="text-3xl font-extrabold text-black mb-2 tracking-tight text-center">Masuk ke Ruang Pembuat</h3>
               <p className="text-[15px] font-medium text-gray-500 text-center mb-8">
-                Autorisasi akun Anda untuk mengakses sistem pembentukan arsitektur.
+                Login untuk mulai merancang dan membuat rancangan aplikasimu secara otomatis.
               </p>
 
-              <button
-                onClick={handleGoogleLogin}
-                disabled={isLoggingIn}
-                className="w-full flex items-center justify-center gap-3 py-4 rounded-full bg-white border border-gray-300 text-black font-bold text-[15px] hover:bg-gray-50 hover:-translate-y-1 transition-all disabled:opacity-50 shadow-sm"
-              >
-                {!isLoggingIn && (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                  </svg>
-                )}
-                {isLoggingIn ? 'Memproses Identitas...' : 'Login Menggunakan Google'}
-              </button>
+              {isGoogleConfigured ? (
+                <div className={`w-full flex justify-center ${isLoggingIn ? 'pointer-events-none opacity-50' : ''}`}>
+                  <GoogleLogin
+                    onSuccess={(credentialResponse) => handleGoogleCredential(credentialResponse.credential)}
+                    onError={() => {
+                      setLoginError('Autentikasi Google dibatalkan atau gagal.');
+                      setIsLoggingIn(false);
+                    }}
+                    theme="outline"
+                    size="large"
+                    shape="pill"
+                    text="signin_with"
+                    width="320"
+                  />
+                </div>
+              ) : (
+                <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 text-center">
+                  Login Google belum dikonfigurasi.
+                </div>
+              )}
+              {isLoggingIn && (
+                <div className="mt-4 text-sm font-bold text-gray-500">Memproses identitas...</div>
+              )}
+              {loginError && (
+                <div className="mt-4 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 text-center">
+                  {loginError}
+                </div>
+              )}
             </motion.div>
           </div>
         )}

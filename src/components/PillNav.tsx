@@ -48,6 +48,19 @@ const PillNav = ({
     }
   }, [initialLoadAnimation]);
 
+  // Re-calculate pill position on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const activeIndex = items.findIndex((item: any) => item.href === activeItem);
+      if (activeIndex !== -1 && itemsRef.current[activeIndex]) {
+        const activeEl = itemsRef.current[activeIndex] as HTMLElement;
+        gsap.set(pillRef.current, { x: activeEl.offsetLeft, width: activeEl.offsetWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeItem, items]);
+
   const handleMouseEnter = (href: any, index: any) => {
     setHoveredItem(href);
     const targetEl = itemsRef.current[index] as HTMLElement;
@@ -120,7 +133,7 @@ const PillNav = ({
             <a
               key={item.href}
               href={item.href}
-              ref={(el) => ((itemsRef.current as any)[index] = el)}
+              ref={(el) => { (itemsRef.current as any)[index] = el; }}
               className={`pill-item ${activeItem === item.href ? "active" : ""}`}
               onMouseEnter={() => handleMouseEnter(item.href, index)}
               onClick={(e) => {
