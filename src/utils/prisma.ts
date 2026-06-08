@@ -1,5 +1,6 @@
 import { PrismaClient } from '../generated/prisma';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { PrismaLibSQL } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
@@ -9,10 +10,11 @@ function buildPrisma(): PrismaClient {
 
   // Gunakan Turso (cloud SQLite) jika dikonfigurasi, otherwise fallback ke file SQLite lokal
   if (tursoUrl && tursoToken) {
-    const adapter = new PrismaLibSql({
+    const libsql = createClient({
       url: tursoUrl,
       authToken: tursoToken,
     });
+    const adapter = new PrismaLibSQL(libsql);
     return new PrismaClient({ adapter } as any);
   }
 
