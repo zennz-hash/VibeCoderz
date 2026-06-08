@@ -10,6 +10,11 @@ function getApp() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Vercel sometimes strips the /api prefix from req.url. Restore it for Express router:
+  if (req.url && !req.url.startsWith('/api')) {
+    req.url = '/api' + (req.url === '/' ? '' : req.url);
+  }
+  
   const app = await getApp();
   // Express expects (req, res) — forward from Vercel
   app(req as any, res as any);
